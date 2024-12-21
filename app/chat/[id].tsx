@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useId } from 'react';
 import {
     View,
     Text,
@@ -12,10 +12,11 @@ import {
     Keyboard,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { getFirestore, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import styles from '../styles/ChatStyles';
 import { lightTheme, darkTheme } from '../styles/HomePageStyles';
 import { useTheme } from '../contexts/themeContext/themeContext';
+import { useAuth } from '../contexts/authContext/authContext';
 
 interface Message {
     text: string;
@@ -34,6 +35,7 @@ const Chat: React.FC = () => {
     const router = useRouter();
     const { isDarkTheme } = useTheme();
     const theme = isDarkTheme ? darkTheme : lightTheme;
+    const authContext = useAuth();
     const [chat, setChat] = useState<Chat | null>(null);
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(true);
@@ -43,8 +45,13 @@ const Chat: React.FC = () => {
         const fetchChat = async () => {
             if (!id) return;
 
+            console.log('Fetching chat with ID:', id); // Log the chat ID
+
             const db = getFirestore();
-            const chatDoc = await getDoc(doc(db, 'chats', id));
+            const chatDocRef = doc(db, 'chats', id);
+            console.log('Chat document reference:', chatDocRef.path); // Log the document reference path
+
+            const chatDoc = await getDoc(chatDocRef);
             if (chatDoc.exists()) {
                 console.log('Chat data:', chatDoc.data());
                 setChat(chatDoc.data() as Chat);
@@ -64,16 +71,44 @@ const Chat: React.FC = () => {
         const chatRef = doc(db, 'chats', id);
         const newMessage: Message = {
             text: message,
-            senderId: 'currentUserId', // Replace with actual user ID
+            senderId: authContext?.currentUser?.uid || 'currentUserId', // Replace with actual user ID
             timestamp: new Date().toISOString(),
         };
 
-        await updateDoc(chatRef, {
-            messages: arrayUnion(newMessage),
-        });
+        try {
+            const chatDoc = await getDoc(chatRef);
+            if (chatDoc.exists()) {
+                await updateDoc(chatRef, {
+                    messages: arrayUnion(newMessage),
+                });
+            } else {
+                await setDoc(chatRef, {
+                    usernames: [authContext?.currentUser?.uid || ''], // Replace 'otherUser' with the actual other user's username
+                    messages: [newMessage],
+                });
+            }
+            console.log('Message sent:', newMessage);
 
-        setMessage('');
-        flatListRef.current?.scrollToEnd({ animated: true });
+            // Update local chat state
+            setChat(prevChat => {
+                if (prevChat) {
+                    return {
+                        ...prevChat,
+                        messages: [...prevChat.messages, newMessage],
+                    };
+                }
+                return {
+                    id,
+                    usernames: [authContext?.currentUser?.uid || ''], // Replace 'otherUser' with the actual other user's username
+                    messages: [newMessage],
+                };
+            });
+
+            setMessage('');
+            flatListRef.current?.scrollToEnd({ animated: true });
+        } catch (error) {
+            console.error('Error sending message:', error);
+        }
     };
 
     return (
@@ -89,9 +124,17 @@ const Chat: React.FC = () => {
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                             <Text style={styles.backButtonText}>{"<"}</Text>
                         </TouchableOpacity>
-                        {chat && (
+                        {chat && authContext?.currentUser && (
                             <Text style={[styles.username, { color: theme.textColor }]}>
-                                {chat.usernames[1]}
+                                {chat.usernames.find(username => {
+                                    if (!authContext.currentUser) {
+                                        console.error('Current user is not defined');
+                                        return false;
+                                    }
+                                    console.log('Current user ID:', authContext.currentUser.uid);
+                                    console.log('Chat usernames:', chat.usernames);
+                                    return username !== authContext.currentUser.uid;
+                                })}
                             </Text>
                         )}
                     </View>
@@ -111,11 +154,11 @@ const Chat: React.FC = () => {
                                             styles.message,
                                             {
                                                 backgroundColor:
-                                                    msg.senderId === 'currentUserId'
+                                                    msg.senderId === authContext?.currentUser?.uid
                                                         ? theme.buttonBackgroundColor
                                                         : '#f1f1f1',
                                                 alignSelf:
-                                                    msg.senderId === 'currentUserId'
+                                                    msg.senderId === authContext?.currentUser?.uid
                                                         ? 'flex-end'
                                                         : 'flex-start',
                                             },
@@ -124,7 +167,7 @@ const Chat: React.FC = () => {
                                         <Text
                                             style={{
                                                 color:
-                                                    msg.senderId === 'currentUserId'
+                                                    msg.senderId === authContext?.currentUser?.uid
                                                         ? 'white'
                                                         : theme.textColor,
                                                 fontSize: 16,
