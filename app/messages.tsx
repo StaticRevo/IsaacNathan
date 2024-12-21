@@ -92,13 +92,18 @@ const MessagingScreen: React.FC = () => {
                     <FontAwesome name="arrow-left" size={24} color={theme.textColor} />
                 </TouchableOpacity>
                 <Text style={[styles.title, { color: theme.textColor }]}>Messages</Text>
+                
+                <TouchableOpacity onPress={() => router.push('/addingNewUser')} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ marginLeft: 120, color: theme.textColor }}>Add user: </Text>
+                    <FontAwesome name="user" size={24} color={theme.textColor} />
+                </TouchableOpacity>
             </View>
 
             {/* Search Bar */}
             <View style={styles.searchContainer}>
                 <TextInput
                     style={[styles.searchInput, { color: theme.textColor }]}
-                    placeholder="Search or start a new chat..."
+                    placeholder="Search for a username..."
                     placeholderTextColor="#666"
                     value={searchQuery}
                     onFocus={() => setIsSearchFocused(true)}
@@ -109,15 +114,20 @@ const MessagingScreen: React.FC = () => {
 
             {/* Saved Chats List */}
             {!isSearchFocused && (
-                <ScrollView style={styles.chatsList}>
-                    {savedChats.map(user => (
-                        <TouchableOpacity key={user.uid} style={styles.chatItem} onPress={() => router.push(`/chat/${user.uid}`)}>
-                            <Image source={{ uri: user.profilePicture }} style={styles.profilePicture} />
+            <ScrollView style={styles.chatsList}>
+                {savedChats.map(user => (
+                    <TouchableOpacity key={user.uid} style={styles.chatItem} onPress={() => router.push(`/chat/${user.uid}`)}>
+                        <Image source={{ uri: user.profilePicture }} style={styles.profilePicture} />
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flex: 1 }}>
                             <Text style={{ color: theme.textColor }}>{user.username}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            )}
+                            <TouchableOpacity onPress={() => {/* Add your delete handler here */}}>
+                                <FontAwesome name="trash" size={24} color={theme.textColor} />
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
+        )}
 
             {/* Search Results List */}
             {isSearchFocused && (

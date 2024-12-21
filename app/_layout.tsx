@@ -47,6 +47,7 @@ export default function RootLayout() {
                             <Stack.Screen name="profile" options={{ title: "Profile" }} />
                             <Stack.Screen name="editProfile" options={{ title: "Edit Profile" }} />
                             <Stack.Screen name="settings" options={{ title: "Settings" }} />
+                            <Stack.Screen name="addingNewUser" options={{ title: "Add New User" }} />
                         </>
                     ) : (
                         <>
