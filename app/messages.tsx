@@ -40,15 +40,24 @@ const MessagingScreen: React.FC = () => {
         const usersSnapshot = await getDocs(usersCollection);
         const userIdsList = usersSnapshot.docs.map(doc => doc.id);
         console.log('Fetched user IDs:', userIdsList); // Log all user IDs for debugging
-        setUserIds(userIdsList);
 
         const userDetailsList = usersSnapshot.docs.map(doc => ({
             uid: doc.id,
             username: doc.data().username,
             profilePicture: doc.data().profilePicture
+            
         }));
+        {/*/ Seeing all the usernames availabes //*this is just for a debug ghax bug wara bug dalwaqt nigu bugsbunny*/}
+        let usernames = ''
+        let count = 1;
+        userDetailsList.forEach(user => {
+            usernames += ` ${count++} = ${user.username} , `;
+        });
+        console.log(`The usernames that I'm talking about are:\n ${usernames}`);
+        setUserIds(userIdsList);
         setUserDetails(userDetailsList);
     };
+
 
     const fetchSavedChats = async (uid: string) => {
         const db = getFirestore();
@@ -57,6 +66,7 @@ const MessagingScreen: React.FC = () => {
             const userData = userDoc.data();
             setSavedChats(userData.savedChats || []);
         }
+     
     };
 
     const handleUserSelect = async (user: UserDetails) => {

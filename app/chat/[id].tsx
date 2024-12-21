@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useId } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
     View,
     Text,
@@ -12,7 +12,7 @@ import {
     Keyboard,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import styles from '../styles/ChatStyles';
 import { lightTheme, darkTheme } from '../styles/HomePageStyles';
 import { useTheme } from '../contexts/themeContext/themeContext';
@@ -22,12 +22,19 @@ interface Message {
     text: string;
     senderId: string;
     timestamp: string;
+    receiverId: string;
 }
 
 interface Chat {
     id: string;
-    usernames: string[];
+    userIds: string[];
     messages: Message[];
+}
+
+interface UserDetails {
+    uid: string;
+    username: string;
+    profilePicture: string;
 }
 
 const Chat: React.FC = () => {
@@ -39,7 +46,9 @@ const Chat: React.FC = () => {
     const [chat, setChat] = useState<Chat | null>(null);
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(true);
+    const [receiverUsername, setReceiverUsername] = useState<string>('Unknown User');
     const flatListRef = useRef<FlatList>(null);
+    const [userDetails, setUserDetails] = useState<UserDetails[]>([]);
 
     useEffect(() => {
         const fetchChat = async () => {
@@ -53,8 +62,11 @@ const Chat: React.FC = () => {
 
             const chatDoc = await getDoc(chatDocRef);
             if (chatDoc.exists()) {
-                console.log('Chat data:', chatDoc.data());
-                setChat(chatDoc.data() as Chat);
+                const chatData = chatDoc.data() as Chat;
+                console.log('Chat data:', chatData);
+                setChat(chatData);
+                const username = getReceiverUsername(chatData.userIds);
+                setReceiverUsername(username);
             } else {
                 console.error('No such chat!');
             }
@@ -62,17 +74,55 @@ const Chat: React.FC = () => {
         };
 
         fetchChat();
-    }, [id]);
+        fetchAllUserIds();
+    }, [id, authContext?.currentUser]);
+
+    const fetchAllUserIds = async () => {
+        const db = getFirestore();
+        const usersCollection = collection(db, 'users');
+        const usersSnapshot = await getDocs(usersCollection);
+        const userIdsList = usersSnapshot.docs.map(doc => doc.id);
+        console.log('Fetched user IDs:', userIdsList); // Log all user IDs for debugging
+
+        const userDetailsList = usersSnapshot.docs.map(doc => ({
+            uid: doc.id,
+            username: doc.data().username,
+            profilePicture: doc.data().profilePicture
+        }));
+
+        {/*/ Seeing all the usernames availabes //*this is just for a debug ghax bug wara bug dalwaqt nigu bugsbunny*/}
+        let usernames = '';
+        let count = 1;
+        userDetailsList.forEach(user => {
+            usernames += ` ${count++} = ${user.username}  , `; // Added extra space after username
+        });
+        console.log(`The usernames that I'm talking about are:\n ${usernames}`);
+        setUserDetails(userDetailsList);
+    };
+
+    const getReceiverUsername = (userIds: string[]) => {
+        if (!authContext?.currentUser || !userIds) return 'errorerrorerror kollox error';
+        const receiverId = userIds.find(uid => uid !== authContext.currentUser?.uid);
+        if (receiverId) {
+            const user = userDetails.find(user => user.uid === receiverId);
+            if (user) {
+                return user.username;
+            }
+            return `User with UID: ${receiverId}`; // Display the UID if username is not found
+        }
+    };
 
     const sendMessage = async () => {
         if (!message.trim()) return;
 
         const db = getFirestore();
         const chatRef = doc(db, 'chats', id);
+        const receiverId = chat?.userIds?.find(uid => uid !== authContext?.currentUser?.uid) || 'receiverId';
         const newMessage: Message = {
             text: message,
             senderId: authContext?.currentUser?.uid || 'currentUserId', // Replace with actual user ID
             timestamp: new Date().toISOString(),
+            receiverId: receiverId,
         };
 
         try {
@@ -83,7 +133,7 @@ const Chat: React.FC = () => {
                 });
             } else {
                 await setDoc(chatRef, {
-                    usernames: [authContext?.currentUser?.uid || ''], // Replace 'otherUser' with the actual other user's username
+                    userIds: [authContext?.currentUser?.uid || 'currentUserId', receiverId],
                     messages: [newMessage],
                 });
             }
@@ -99,7 +149,7 @@ const Chat: React.FC = () => {
                 }
                 return {
                     id,
-                    usernames: [authContext?.currentUser?.uid || ''], // Replace 'otherUser' with the actual other user's username
+                    userIds: [authContext?.currentUser?.uid || 'currentUserId', receiverId],
                     messages: [newMessage],
                 };
             });
@@ -126,15 +176,7 @@ const Chat: React.FC = () => {
                         </TouchableOpacity>
                         {chat && authContext?.currentUser && (
                             <Text style={[styles.username, { color: theme.textColor }]}>
-                                {chat.usernames.find(username => {
-                                    if (!authContext.currentUser) {
-                                        console.error('Current user is not defined');
-                                        return false;
-                                    }
-                                    console.log('Current user ID:', authContext.currentUser.uid);
-                                    console.log('Chat usernames:', chat.usernames);
-                                    return username !== authContext.currentUser.uid;
-                                })}
+                                {receiverUsername}
                             </Text>
                         )}
                     </View>
