@@ -51,31 +51,35 @@ const Chat: React.FC = () => {
     const [userDetails, setUserDetails] = useState<UserDetails[]>([]);
 
     useEffect(() => {
-        const fetchChat = async () => {
-            if (!id) return;
-
-            console.log('Fetching chat with ID:', id); // Log the chat ID
-
-            const db = getFirestore();
-            const chatDocRef = doc(db, 'chats', id);
-            console.log('Chat document reference:', chatDocRef.path); // Log the document reference path
-
-            const chatDoc = await getDoc(chatDocRef);
-            if (chatDoc.exists()) {
-                const chatData = chatDoc.data() as Chat;
-                console.log('Chat data:', chatData);
-                setChat(chatData);
-                const username = getReceiverUsername(chatData.userIds);
-                setReceiverUsername(username);
-            } else {
-                console.error('No such chat!');
-            }
-            setLoading(false);
+        const fetchData = async () => {
+            await fetchAllUserIds();
+            await fetchChat();
         };
 
-        fetchChat();
-        fetchAllUserIds();
+        fetchData();
     }, [id, authContext?.currentUser]);
+
+    const fetchChat = async () => {
+        if (!id) return;
+
+        console.log('Fetching chat with ID:', id); // Log the chat ID
+
+        const db = getFirestore();
+        const chatDocRef = doc(db, 'chats', id);
+        console.log('Chat document reference:', chatDocRef.path); // Log the document reference path
+
+        const chatDoc = await getDoc(chatDocRef);
+        if (chatDoc.exists()) {
+            const chatData = chatDoc.data() as Chat;
+            console.log('Chat data:', chatData);
+            setChat(chatData);
+            const username = getReceiverUsername(chatData.userIds);
+            setReceiverUsername(username);
+        } else {
+            console.error('No such chat!');
+        }
+        setLoading(false);
+    };
 
     const fetchAllUserIds = async () => {
         const db = getFirestore();
@@ -90,7 +94,6 @@ const Chat: React.FC = () => {
             profilePicture: doc.data().profilePicture
         }));
 
-        {/*/ Seeing all the usernames availabes //*this is just for a debug ghax bug wara bug dalwaqt nigu bugsbunny*/}
         let usernames = '';
         let count = 1;
         userDetailsList.forEach(user => {
@@ -101,7 +104,7 @@ const Chat: React.FC = () => {
     };
 
     const getReceiverUsername = (userIds: string[]) => {
-        if (!authContext?.currentUser || !userIds) return 'errorerrorerror kollox error';
+        if (!authContext?.currentUser || !userIds) return 'not fetched';
         const receiverId = userIds.find(uid => uid !== authContext.currentUser?.uid);
         if (receiverId) {
             const user = userDetails.find(user => user.uid === receiverId);
